@@ -104,6 +104,27 @@ except (ImportError, OSError) as e:
             magic_warned = True
         return mimetypes.guess_type(file)[0]
 
+
+def output(message):
+    sys.stdout.write(message + "\n")
+    sys.stdout.flush()
+
+file_extensions = {}
+try:
+    with open('./file_extensions.mime_types') as f:
+        for line in f:
+            (key, val) = line.split()
+            output("Key %s " % key )
+            file_extensions[key] = val
+except IOError as e:
+    error_str = str(e)
+    output("Error loading file extensions: %s" % error_str )
+
+def file_ext_content_type(filename):
+    extension = os.path.splitext(filename)[1]
+    output("Extension is " + extension)
+    return file_extensions.get(extension)
+
 def mime_magic(file):
     ## NOTE: So far in the code, "file" var is already unicode
     def _mime_magic(file):
@@ -563,6 +584,7 @@ class S3(object):
         return (request)
 
     def _guess_content_type(self, filename):
+
         content_type = self.config.default_mime_type
         content_charset = None
 
@@ -570,12 +592,14 @@ class S3(object):
             raise ParameterError("You must specify --mime-type or --default-mime-type for files uploaded from stdin.")
 
         if self.config.guess_mime_type:
-            if self.config.follow_symlinks:
-                filename = unicodise(os.path.realpath(deunicodise(filename)))
-            if self.config.use_mime_magic:
-                (content_type, content_charset) = mime_magic(filename)
-            else:
-                (content_type, content_charset) = mimetypes.guess_type(filename)
+            content_type = file_ext_content_type(filename)
+            if not content_type:
+                if self.config.follow_symlinks:
+                    filename = unicodise(os.path.realpath(deunicodise(filename)))
+                if self.config.use_mime_magic:
+                    (content_type, content_charset) = mime_magic(filename)
+                else:
+                    (content_type, content_charset) = mimetypes.guess_type(filename)
         if not content_type:
             content_type = self.config.default_mime_type
         return (content_type, content_charset)
@@ -595,8 +619,10 @@ class S3(object):
 
         if filename == u'-':
             return self.stdin_content_type()
+
+        (content_type, content_charset) = self._guess_content_type(filename)
         if not content_type:
-            (content_type, content_charset) = self._guess_content_type(filename)
+            content_type = self.config.mime_type
 
         ## add charset to content type
         if not content_charset:
@@ -604,6 +630,7 @@ class S3(object):
         if self.add_encoding(filename, content_type) and content_charset is not None:
             content_type = content_type + "; charset=" + content_charset
 
+        output(u"%s: using mime type %s" % (filename, content_type))
         return content_type
 
     def add_encoding(self, filename, content_type):
