@@ -111,10 +111,10 @@ def output(message):
 
 file_extensions = {}
 try:
-    with open('./file_extensions.mime_types') as f:
+    mime_type_file = os.path.join(os.path.dirname(__file__), '..','file_extension.mime_types')
+    with open(mime_type_file) as f:
         for line in f:
             (key, val) = line.split()
-            output("Key %s " % key )
             file_extensions[key] = val
 except IOError as e:
     error_str = str(e)
@@ -122,7 +122,6 @@ except IOError as e:
 
 def file_ext_content_type(filename):
     extension = os.path.splitext(filename)[1]
-    output("Extension is " + extension)
     return file_extensions.get(extension)
 
 def mime_magic(file):
@@ -630,7 +629,6 @@ class S3(object):
         if self.add_encoding(filename, content_type) and content_charset is not None:
             content_type = content_type + "; charset=" + content_charset
 
-        output(u"%s: using mime type %s" % (filename, content_type))
         return content_type
 
     def add_encoding(self, filename, content_type):
